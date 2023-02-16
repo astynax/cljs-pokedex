@@ -1,0 +1,25 @@
+#+TITLE: ClJS Pokedex
+#+startup: overview
+
+* Libs
+
+| purpose       | lib        |
+|---------------+------------|
+| html          | [[https://github.com/tonsky/rum][rum]]        |
+| http          | [[https://github.com/JulianBirch/cljs-ajax][cljs-ajax]]  |
+| local storage | [[http://funcool.github.io/hodgepodge/][hodgepodge]] |
+| routing       | [[https://github.com/juxt/bidi][bidi]]       |
+
+* Lifecycle
+#+BEGIN_SRC clojure
+(defn ^:dev/after-load start []
+  (js/console.log "start"))
+#+END_SRC
+* AJAX
+
+#+BEGIN_SRC clojure
+(GET "https://pokeapi.co/api/v2/pokemon/ditto"
+    :response-format :json
+    :handler #'handler
+    :keywords? true)
+#+END_SRC
