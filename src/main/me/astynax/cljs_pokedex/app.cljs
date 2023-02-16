@@ -1,12 +1,48 @@
 (ns me.astynax.cljs-pokedex.app
-  (:require [rum.core :as rum]))
+  (:require [rum.core :as rum]
+            [ajax.core :refer [GET]]))
 
-(defonce counter (atom 0))
+(def url "https://pokeapi.co/api/v2/pokemon/")
+
+(defonce cache (atom {}))
+
+(defonce state (atom [:list url]))
+
+(defn fetch
+  ([addr] (fetch addr ""))
+  ([addr query]
+   (or (get @cache addr)
+       (and (GET (str addr query)
+                :response-format :json
+                :handler (fn [resp]
+                           (swap! cache assoc addr resp))
+                :keywords? true)
+            {}))))
 
 (rum/defc view < rum/reactive []
-  [:h3 (str (rum/react counter))
-   [:button {:on-click #(swap! counter inc)} "+"]
-   [:button {:on-click #(swap! counter dec)} "-"]])
+  (let [_ (rum/react cache)
+        [page-type addr] (rum/react state)]
+    (case page-type
+      :list
+      [:ul
+       (for [row (take 20 (get (fetch addr) :results []))]
+         [:li
+          [:a {:href "#"
+               :on-click (fn []
+                           (reset! state [:pokemon (:url row)]))}
+           (:name row)]
+          ])
+       ]
+
+      :pokemon
+      [:div
+       [:a {:href "#" :on-click (fn [] (reset! state [:list url]))}
+        "<< to list"]
+       (let [data (fetch addr)]
+         [:img.block.fixed {:src (get-in data [:sprites :front_default] "")}])]
+
+      :else "oops!")
+    ))
 
 (defn init []
   (rum/mount (view) (js/document.querySelector "#root")))
