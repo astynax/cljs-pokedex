@@ -6,7 +6,8 @@
 
  :dependencies
  [[cljs-ajax "0.8.4"]
-  [rum "0.12.10"]]
+  [rum "0.12.10"]
+  [datascript "1.4.0"]]
 
  :dev-http {8000 "public"}
 

@@ -1,16 +1,50 @@
 (ns me.astynax.cljs-pokedex.app
   (:require [rum.core :as rum]
-            [ajax.core :refer [GET POST]]))
+            [ajax.core :refer [GET POST]]
+            [datascript.core :as d]))
 
 (def url "https://pokeapi.co/api/v2/pokemon/")
 
-(defonce cache (atom {}))
+(defonce cache (atom nil))
+
+(def schema {:pokemon/id {:db/index true}
+             :pokemon/color-id {:db/index true}
+             :pokemon/is-legendary {:db/index true}
+             :pokemon/is-mythial {:db/index true}})
+
+(defonce conn (d/create-conn schema))
 
 (defonce state (atom [:list url]))
 
+(defn to-entity [data]
+  {:db/add -1
+   :pokemon/id           (:id data)
+   :pokemon/name         (get-in data [:specy :specy_name 0 :name])
+   :pokemon/color-id     (get-in data [:specy :color :id])
+   :pokemon/color        (get-in data [:specy :color :color_name 0 :name])
+   :pokemon/is-legendary (get-in data [:specy :is_legendary])
+   :pokemon/is-mythial   (get-in data [:specy :is_mythical])})
+
+(defn from-cache [data]
+  (d/transact! conn
+               (->> data
+                    :pokemon
+                    (mapv to-entity))))
+
 (comment
-  (POST "https://beta.pokeapi.co/graphql/v1beta"
+  (d/q '[:find ?name
+         :where
+         [?eid :pokemon/name ?name]
+         [?eid :pokemon/color "Green"]]
+       @conn))
+
+(defn load []
+  (POST
+      "https://beta.pokeapi.co/graphql/v1beta"
+      :handler (fn [resp] (reset! cache (:data resp)))
       :format :json
+      :response-format :json
+      :keywords? true
       :params
       {:query "query samplePokeAPIquery {
   pokemon: pokemon_v2_pokemon {
@@ -45,41 +79,21 @@
        :operationName "samplePokeAPIquery"
        }))
 
-(defn fetch
-  ([addr] (fetch addr ""))
-  ([addr query]
-   (or (get @cache addr)
-       (and (GET (str addr query)
-                :response-format :json
-                :handler (fn [resp]
-                           (swap! cache assoc addr resp))
-                :keywords? true)
-            {}))))
-
-(rum/defc view < rum/reactive []
-  (let [_ (rum/react cache)
-        [page-type addr] (rum/react state)]
-    (case page-type
-      :list
-      [:ul
-       (for [row (take 20 (get (fetch addr) :results []))]
-         [:li
-          [:a {:href "#"
-               :on-click (fn []
-                           (reset! state [:pokemon (:url row)]))}
-           (:name row)]])]
-
-      :pokemon
-      [:div
-       [:a {:href "#" :on-click (fn [] (reset! state [:list url]))}
-        "<< to list"]
-       (let [data (fetch addr)]
-         [:img.block.fixed {:src (get-in data [:sprites :front_default] "")}])]
-
-      :else "oops!")))
+(rum/defc view [db]
+  [:ul
+   (for [[name color]
+         (sort
+          (d/q '[:find ?name ?color
+                 :where
+                 [?eid :pokemon/name ?name]
+                 [?eid :pokemon/color ?color]
+                 ]
+               db))]
+     [:li {:key name}
+      name " (" color ")"])])
 
 (defn init []
-  (rum/mount (view) (js/document.querySelector "#root")))
+  (rum/mount (view @conn) (js/document.querySelector "#root")))
 
 (defn ^:dev/after-load after-reload []
   (init))
