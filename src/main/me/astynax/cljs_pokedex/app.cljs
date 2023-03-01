@@ -6,27 +6,49 @@
 (defonce cache (atom nil))
 (defonce state (atom {:loaded false}))
 
-(def schema {:pokemon/id {:db/index true}
-             :pokemon/color-id {:db/index true}
-             :pokemon/is-legendary {:db/index true}
-             :pokemon/is-mythial {:db/index true}})
+(defonce schema {:pokemon/id {:db/unique :db.unique/identity}
+                 :pokemon/color {:db/index true
+                                 :db/type :db.type/ref}
+                 :pokemon/types {:db/index true
+                                 :db/valueType :db.type/ref
+                                 :db/cardinality :db.cardinality/many}
+                 :pokemon/is-legendary {:db/index true}
+                 :pokemon/is-mythial {:db/index true}
+
+                 :color/id {:db/unique :db.unique/identity}
+
+                 :pokemon-type/id {:db/unique :db.unique/identity}})
 
 (defonce conn (d/create-conn schema))
 
-(defn to-entity [data]
+(defn to-type-entity [data]
   {:db/add -1
+   :db/ident [:pokemon-type/id (:id data)]
+   :pokemon-type/id (:id data)
+   :pokemon-type/name (get-in data [:names 0 :name])})
+
+(defn to-color-entity [data]
+  {:db/add -1
+   :db/ident [:color/id (:id data)]
+   :color/id (:id data)
+   :color/name (get-in data [:names 0 :name])})
+
+(defn to-pokemon-entity [data]
+  {:db/add -1
+   :db/ident             [:pokemon/id (:id data)]
    :pokemon/id           (:id data)
-   :pokemon/name         (get-in data [:specy :specy_name 0 :name])
-   :pokemon/color-id     (get-in data [:specy :color :id])
-   :pokemon/color        (get-in data [:specy :color :color_name 0 :name])
+   :pokemon/name         (get-in data [:specy :names 0 :name])
+   :pokemon/color        [:color/id (get-in data [:specy :color :id])]
+   :pokemon/types        (map (fn [t] [:pokemon-type/id
+                                      (get-in t [:type :id])])
+                              (:types data))
    :pokemon/is-legendary (get-in data [:specy :is_legendary])
    :pokemon/is-mythial   (get-in data [:specy :is_mythical])})
 
-(defn load-cached-data [data]
-  (d/transact! conn
-               (->> data
-                    :pokemon
-                    (mapv to-entity)))
+(defn load-cached-data [{:keys [pokemon types colors]}]
+  (d/transact! conn (map to-type-entity types))
+  (d/transact! conn (map to-color-entity colors))
+  (d/transact! conn (map to-pokemon-entity pokemon))
   (swap! state assoc :loaded true))
 
 (add-watch cache :from-cache (fn [_ _ _ data] (load-cached-data data)))
@@ -34,38 +56,45 @@
 (defn fetch-and-cache []
   (POST
       "https://beta.pokeapi.co/graphql/v1beta"
-      :handler (fn [resp] (reset! cache (:data resp)))
+      :handler #(reset! cache (:data %))
       :format :json
       :response-format :json
       :keywords? true
       :params
-      {:query "query samplePokeAPIquery {
+      {:query "
+query samplePokeAPIquery {
   pokemon: pokemon_v2_pokemon {
     types: pokemon_v2_pokemontypes {
       type: pokemon_v2_type {
         id
-        type_name: pokemon_v2_typenames(where: {language_id: {_eq: 9}}) {
-          name
-        }
       }
     }
     specy: pokemon_v2_pokemonspecy {
-      specy_name: pokemon_v2_pokemonspeciesnames(where: {language_id: {_eq: 9}}) {
+      names: pokemon_v2_pokemonspeciesnames(where: {language_id: {_eq: 9}}) {
         name
       }
       color: pokemon_v2_pokemoncolor {
         id
-        color_name: pokemon_v2_pokemoncolornames(where: {language_id: {_eq: 9}}) {
-          name
-        }
       }
       is_mythical
       is_legendary
     }
+    id
     sprites: pokemon_v2_pokemonsprites {
       sprites
     }
+  }
+  types: pokemon_v2_type {
     id
+    names: pokemon_v2_typenames(where: {language_id: {_eq: 9}}) {
+      name
+    }
+  }
+  colors: pokemon_v2_pokemoncolor {
+    id
+    names: pokemon_v2_pokemoncolornames(where: {language_id: {_eq: 9}}) {
+      name
+    }
   }
 }"
        :variables nil
@@ -77,16 +106,25 @@
     (if (not loaded)
       [:div "Loading..."]
       [:ul
-       (for [[name color]
+       (for [[name color eid]
              (sort
-              (d/q '[:find ?name ?color
+              (d/q '[:find ?name ?color ?eid
                      :where
                      [?eid :pokemon/name ?name]
-                     [?eid :pokemon/color ?color]
-                     ]
+                     [?eid :pokemon/color ?cid]
+                     [?cid :color/name ?color]]
                    @conn))]
-         [:li {:key name}
-          name " (" color ")"])]
+         [:li {:key (str eid)}
+          name
+          " (" color ")"
+          (for [t (sort (d/q '[:find ?type
+                               :in $ ?pid
+                               :where
+                               [?pid :pokemon/types ?tid]
+                               [?tid :pokemon-type/name ?type]]
+                             @conn eid))]
+            [:span " [" t "]"])
+          ])]
       )))
 
 (defn ^:dev/after-load mount []
