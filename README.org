@@ -1,25 +1,29 @@
 #+TITLE: ClJS Pokedex
 #+startup: overview
 
-* Libs
+* About
+
+This is a simple WebApp made with ClojureScript that works as the [[https://en.wikipedia.org/wiki/Gameplay_of_Pok%C3%A9mon#Pok%C3%A9dex][Pokédex]] — a database of pokémon.
+
+Features:
+
+- [X] It loads all the data from [[https://pokeapi.co/][PokeAPI]]
+- [ ] It shows an interface to query that data
+- [ ] It caches all the data in Local Storage and could work offline
+
+* How to run
+
+- Ensure that you have NodeJS
+- ~npm install~
+- ~npx shadow-cljs watch app~
+
+There will be a live version someday.
+
+* Libs to play with
 
 | purpose       | lib        |
 |---------------+------------|
 | html          | [[https://github.com/tonsky/rum][rum]]        |
 | http          | [[https://github.com/JulianBirch/cljs-ajax][cljs-ajax]]  |
+| in-memory DB  | [[https://github.com/tonsky/datascript][datascript]] |
 | local storage | [[http://funcool.github.io/hodgepodge/][hodgepodge]] |
-| routing       | [[https://github.com/juxt/bidi][bidi]]       |
-
-* Lifecycle
-#+BEGIN_SRC clojure
-(defn ^:dev/after-load start []
-  (js/console.log "start"))
-#+END_SRC
-* AJAX
-
-#+BEGIN_SRC clojure
-(GET "https://pokeapi.co/api/v2/pokemon/ditto"
-    :response-format :json
-    :handler #'handler
-    :keywords? true)
-#+END_SRC
