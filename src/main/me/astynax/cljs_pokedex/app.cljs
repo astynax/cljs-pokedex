@@ -43,7 +43,7 @@
                                       (get-in t [:type :id])])
                               (:types data))
    :pokemon/is-legendary (get-in data [:specy :is_legendary])
-   :pokemon/is-mythial   (get-in data [:specy :is_mythical])})
+   :pokemon/is-mythical  (get-in data [:specy :is_mythical])})
 
 (defn load-cached-data [{:keys [pokemon types colors]}]
   (d/transact! conn (map to-type-entity types))
@@ -106,10 +106,11 @@ query samplePokeAPIquery {
     (if (not loaded)
       [:div "Loading..."]
       [:ul
-       (for [[name color eid]
+       (for [[_ name color eid]
              (sort
-              (d/q '[:find ?name ?color ?eid
+              (d/q '[:find ?pid ?name ?color ?eid
                      :where
+                     [?eid :pokemon/id ?pid]
                      [?eid :pokemon/name ?name]
                      [?eid :pokemon/color ?cid]
                      [?cid :color/name ?color]]
