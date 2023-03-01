@@ -3,9 +3,8 @@
             [ajax.core :refer [GET POST]]
             [datascript.core :as d]))
 
-(def url "https://pokeapi.co/api/v2/pokemon/")
-
 (defonce cache (atom nil))
+(defonce state (atom {:loaded false}))
 
 (def schema {:pokemon/id {:db/index true}
              :pokemon/color-id {:db/index true}
@@ -13,8 +12,6 @@
              :pokemon/is-mythial {:db/index true}})
 
 (defonce conn (d/create-conn schema))
-
-(defonce state (atom [:list url]))
 
 (defn to-entity [data]
   {:db/add -1
@@ -25,20 +22,16 @@
    :pokemon/is-legendary (get-in data [:specy :is_legendary])
    :pokemon/is-mythial   (get-in data [:specy :is_mythical])})
 
-(defn from-cache [data]
+(defn load-cached-data [data]
   (d/transact! conn
                (->> data
                     :pokemon
-                    (mapv to-entity))))
+                    (mapv to-entity)))
+  (swap! state assoc :loaded true))
 
-(comment
-  (d/q '[:find ?name
-         :where
-         [?eid :pokemon/name ?name]
-         [?eid :pokemon/color "Green"]]
-       @conn))
+(add-watch cache :from-cache (fn [_ _ _ data] (load-cached-data data)))
 
-(defn load []
+(defn fetch-and-cache []
   (POST
       "https://beta.pokeapi.co/graphql/v1beta"
       :handler (fn [resp] (reset! cache (:data resp)))
@@ -79,21 +72,26 @@
        :operationName "samplePokeAPIquery"
        }))
 
-(rum/defc view [db]
-  [:ul
-   (for [[name color]
-         (sort
-          (d/q '[:find ?name ?color
-                 :where
-                 [?eid :pokemon/name ?name]
-                 [?eid :pokemon/color ?color]
-                 ]
-               db))]
-     [:li {:key name}
-      name " (" color ")"])])
+(rum/defc view < rum/reactive []
+  (let [{:keys [loaded]} (rum/react state)]
+    (if (not loaded)
+      [:div "Loading..."]
+      [:ul
+       (for [[name color]
+             (sort
+              (d/q '[:find ?name ?color
+                     :where
+                     [?eid :pokemon/name ?name]
+                     [?eid :pokemon/color ?color]
+                     ]
+                   @conn))]
+         [:li {:key name}
+          name " (" color ")"])]
+      )))
+
+(defn ^:dev/after-load mount []
+  (rum/mount (view) (js/document.querySelector "#root")))
 
 (defn init []
-  (rum/mount (view @conn) (js/document.querySelector "#root")))
-
-(defn ^:dev/after-load after-reload []
-  (init))
+  (js/setTimeout fetch-and-cache 0)
+  (mount))
