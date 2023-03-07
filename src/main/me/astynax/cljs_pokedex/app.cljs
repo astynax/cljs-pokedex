@@ -53,6 +53,36 @@
 
 (add-watch cache :from-cache (fn [_ _ _ data] (load-cached-data data)))
 
+(def fake-data
+  {:pokemon
+   (mapv (fn [[i name color types leg myth]]
+           {:id i
+            :types (mapv (fn [t] {:type {:id t}})
+                         types)
+            :specy
+            {:names [{:name name}]
+             :color {:id color}
+             :is_legendary leg
+             :is_mythical myth}})
+         [[1 "Bulbazaur" 3 [1 2] false false]
+          [2 "Charmander" 1 [3] false false]
+          [3 "Foo" 2 [2] true false]
+          [4 "Bar" 1 [1 3] false true]
+          [5 "???" 1 [3] true true]
+          ])
+
+   :types
+   (mapv (fn [[i n]] {:id i :names [{:name n}]})
+         [[1 "Grass"]
+          [2 "Poison"]
+          [3 "Fire"]])
+
+   :colors
+   (mapv (fn [[i n]] {:id i :names [{:name n}]})
+         [[1 "Red"]
+          [2 "Yellow"]
+          [3 "Green"]])})
+
 (defn fetch-and-cache []
   (POST
       "https://beta.pokeapi.co/graphql/v1beta"
@@ -101,36 +131,60 @@ query samplePokeAPIquery {
        :operationName "samplePokeAPIquery"
        }))
 
+(defn list-pokemon [& extra]
+  (sort
+   (fn [i1 i2] (< (:name i1) (:name i2)))
+   (vals
+    (reduce
+     (fn [acc [eid name color typ]]
+       (update acc eid (fn [old] (or (and old (update old :types conj typ))
+                                    {:eid eid
+                                     :name name
+                                     :color color
+                                     :types [typ]}))))
+     {}
+     (d/q (concat
+           '[:find ?eid ?name ?color ?type
+             :where
+             [?eid :pokemon/id ?pid]
+             [?eid :pokemon/name ?name]
+             [?eid :pokemon/color ?cid]
+             [?cid :color/name ?color]
+             [?eid :pokemon/types ?tid]
+             [?tid :pokemon-type/name ?type]]
+           extra)
+          @conn)))))
+
 (rum/defc view < rum/reactive []
-  (let [{:keys [loaded]} (rum/react state)]
+  (let [{:keys [loaded extra]} (rum/react state)]
     (if (not loaded)
       [:div "Loading..."]
-      [:ul
-       (for [[_ name color eid]
-             (sort
-              (d/q '[:find ?pid ?name ?color ?eid
-                     :where
-                     [?eid :pokemon/id ?pid]
-                     [?eid :pokemon/name ?name]
-                     [?eid :pokemon/color ?cid]
-                     [?cid :color/name ?color]]
-                   @conn))]
-         [:li {:key (str eid)}
-          name
-          " (" color ")"
-          (for [t (sort (d/q '[:find ?type
-                               :in $ ?pid
-                               :where
-                               [?pid :pokemon/types ?tid]
-                               [?tid :pokemon-type/name ?type]]
-                             @conn eid))]
-            [:span " [" t "]"])
-          ])]
+      [:div
+       (when extra
+         [:button {:on-click (fn [] (swap! state dissoc :extra))}
+          "Reset filters"])
+       [:ul
+        (for [{:keys [eid name color types]} (list-pokemon extra)]
+          [:li {:key (str eid)}
+           name
+           [:button {:on-click
+                     (fn [] (swap! state assoc
+                                  :extra
+                                  [(list '= '?color color)]))}
+            color]
+           (for [t (sort types)]
+             [:button {:on-click
+                       (fn [] (swap! state assoc
+                                    :extra
+                                    [(list '= '?type t)]))}
+              t])
+           ])]]
       )))
 
 (defn ^:dev/after-load mount []
   (rum/mount (view) (js/document.querySelector "#root")))
 
 (defn init []
-  (js/setTimeout fetch-and-cache 0)
+  ;; (js/setTimeout fetch-and-cache 0)
+  (reset! cache fake-data)
   (mount))
