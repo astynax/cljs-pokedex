@@ -1,6 +1,8 @@
 node_modules/
 public/js
 
+public/dump.json
+
 /target
 /checkouts
 /src/gen
@@ -15,6 +17,3 @@ pom.xml.asc
 .lein-*
 .nrepl-*
 .DS_Store
-
-.hgignore
-.hg/

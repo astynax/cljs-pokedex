@@ -1,5 +1,5 @@
 (ns me.astynax.cljs-pokedex.api
-  (:require [ajax.core :refer [POST]]))
+  (:require [ajax.core :refer [GET POST]]))
 
 (defn fetch [handler]
   (POST
@@ -50,6 +50,12 @@ query samplePokeAPIquery {
        :variables nil
        :operationName "samplePokeAPIquery"
        }))
+
+(defn fetch-dump [handler]
+  (GET "/dump.json"
+      :handler #(handler (:data %))
+      :response-format :json
+      :keywords? true))
 
 (def example
   {:pokemon

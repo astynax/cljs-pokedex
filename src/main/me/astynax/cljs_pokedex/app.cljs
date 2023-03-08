@@ -69,6 +69,7 @@
   (rum/mount (view) (js/document.querySelector "#root")))
 
 (defn init []
-  (js/setTimeout #(api/fetch (partial reset! cache)) 0)
+  ;; (api/fetch #(reset! cache %))
+  (api/fetch-dump #(reset! cache %))
   ;; (reset! cache api/example)
   (mount))
