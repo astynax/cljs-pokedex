@@ -15,6 +15,9 @@
 
    :pokemon-type/id {:db/unique :db.unique/identity}})
 
+(defn create []
+  (d/create-conn schema))
+
 (defn -to-type-entity [data]
   {:db/add -1
    :db/ident [:pokemon-type/id (:id data)]

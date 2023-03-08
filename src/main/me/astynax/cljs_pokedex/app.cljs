@@ -1,13 +1,11 @@
 (ns me.astynax.cljs-pokedex.app
   (:require [rum.core :as rum]
-            [ajax.core :refer [GET POST]]
-            [datascript.core :as d]
             [me.astynax.cljs-pokedex.db :as db]
             [me.astynax.cljs-pokedex.api :as api]))
 
 (defonce cache (atom nil))
 (defonce state (atom {:loaded false}))
-(defonce conn (d/create-conn db/schema))
+(defonce conn (db/create))
 
 (defn load-cached-data [{:keys [pokemon types colors]}]
   (db/load
