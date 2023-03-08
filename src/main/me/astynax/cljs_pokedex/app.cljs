@@ -90,6 +90,8 @@
       :format :json
       :response-format :json
       :keywords? true
+      :headers
+      {"X-Method-Used" "graphiql"}
       :params
       {:query "
 query samplePokeAPIquery {
@@ -131,20 +133,24 @@ query samplePokeAPIquery {
        :operationName "samplePokeAPIquery"
        }))
 
+(defn merge-rows [acc {:keys [eid type] :as row}]
+  (update acc eid
+          (fn [old] (or (and old (update old :types conj type))
+                       (-> row
+                           (dissoc :type)
+                           (assoc :types [type]))))))
+
 (defn list-pokemon [& extra]
   (sort
-   (fn [i1 i2] (< (:name i1) (:name i2)))
+   (fn [{i1 :eid n1 :name} {i2 :eid n2 :name}]
+     (or (< n1 n2) (and (= n1 n2) (< i1 i2))))
    (vals
     (reduce
-     (fn [acc [eid name color typ]]
-       (update acc eid (fn [old] (or (and old (update old :types conj typ))
-                                    {:eid eid
-                                     :name name
-                                     :color color
-                                     :types [typ]}))))
+     merge-rows
      {}
      (d/q (concat
-           '[:find ?eid ?name ?color ?type
+           '[:find ?pid ?name ?color ?type
+             :keys eid name color type
              :where
              [?eid :pokemon/id ?pid]
              [?eid :pokemon/name ?name]
@@ -155,29 +161,48 @@ query samplePokeAPIquery {
            extra)
           @conn)))))
 
+(defn make-filters [{:keys [color type]}]
+  (filter
+   identity
+   [(when color
+      [(list '= '?color color)])
+    (when type
+      [(list '= '?type type)])]))
+
+(rum/defc button [text func & args]
+  [:button.inline.block.round.accent
+   {:on-click (fn [] (apply swap! state func args))}
+   text])
+
+(rum/defc tag [state key value]
+  (if (get state key)
+    [:span.inline.fixed.block.round value]
+    (button value assoc key value)))
+
 (rum/defc view < rum/reactive []
-  (let [{:keys [loaded extra]} (rum/react state)]
+  (let [{:keys [loaded] :as s} (rum/react state)
+        filters (make-filters s)]
     (if (not loaded)
       [:div "Loading..."]
-      [:div
-       (when extra
-         [:button {:on-click (fn [] (swap! state dissoc :extra))}
-          "Reset filters"])
-       [:ul
-        (for [{:keys [eid name color types]} (list-pokemon extra)]
-          [:li {:key (str eid)}
-           name
-           [:button {:on-click
-                     (fn [] (swap! state assoc
-                                  :extra
-                                  [(list '= '?color color)]))}
-            color]
-           (for [t (sort types)]
-             [:button {:on-click
-                       (fn [] (swap! state assoc
-                                    :extra
-                                    [(list '= '?type t)]))}
-              t])
+      [:table
+       [:thead
+        [:tr
+         [:td
+          [:strong "Name"]]
+         [:td
+          [:strong "Color"]
+          (when (:color s)
+            (button "✕" dissoc :color))]
+         [:td
+          [:strong "Type"]
+          (when (:type s)
+            (button "✕" dissoc :type))]]]
+       [:tbody
+        (for [{:keys [eid name color types]} (apply list-pokemon filters)]
+          [:tr {:key (str eid)}
+           [:td {:title (str "Id: " eid)} name]
+           [:td (tag s :color color)]
+           [:td (for [t (sort types)] (tag s :type t))]
            ])]]
       )))
 
@@ -185,6 +210,6 @@ query samplePokeAPIquery {
   (rum/mount (view) (js/document.querySelector "#root")))
 
 (defn init []
-  ;; (js/setTimeout fetch-and-cache 0)
-  (reset! cache fake-data)
+  (js/setTimeout fetch-and-cache 0)
+  ;; (reset! cache fake-data)
   (mount))
