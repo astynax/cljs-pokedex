@@ -2,7 +2,8 @@
 {:source-paths
  ["src/dev"
   "src/main"
-  "src/test"]
+  "src/test"
+  "data"]
 
  :dependencies
  [[cljs-ajax "0.8.4"]

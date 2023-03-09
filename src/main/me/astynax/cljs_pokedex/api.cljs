@@ -1,5 +1,9 @@
 (ns me.astynax.cljs-pokedex.api
-  (:require [ajax.core :refer [GET POST]]))
+  (:require [shadow.resource :as rc]
+            [ajax.core :refer [GET POST]]))
+
+(def ^:private -query
+  (rc/inline "main.gql"))
 
 (defn fetch [handler]
   (POST
@@ -8,45 +12,9 @@
       :format :json
       :response-format :json
       :keywords? true
-      :headers
-      {"X-Method-Used" "graphiql"}
+      :headers {"X-Method-Used" "graphiql"}
       :params
-      {:query "
-query samplePokeAPIquery {
-  pokemon: pokemon_v2_pokemon {
-    types: pokemon_v2_pokemontypes {
-      type: pokemon_v2_type {
-        id
-      }
-    }
-    specy: pokemon_v2_pokemonspecy {
-      names: pokemon_v2_pokemonspeciesnames(where: {language_id: {_eq: 9}}) {
-        name
-      }
-      color: pokemon_v2_pokemoncolor {
-        id
-      }
-      is_mythical
-      is_legendary
-    }
-    id
-    sprites: pokemon_v2_pokemonsprites {
-      sprites
-    }
-  }
-  types: pokemon_v2_type {
-    id
-    names: pokemon_v2_typenames(where: {language_id: {_eq: 9}}) {
-      name
-    }
-  }
-  colors: pokemon_v2_pokemoncolor {
-    id
-    names: pokemon_v2_pokemoncolornames(where: {language_id: {_eq: 9}}) {
-      name
-    }
-  }
-}"
+      {:query -query
        :variables nil
        :operationName "samplePokeAPIquery"
        }))
