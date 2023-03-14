@@ -1,6 +1,40 @@
 (ns me.astynax.cljs-pokedex.api
   (:require [shadow.resource :as rc]
+            [clojure.spec.alpha :as s]
             [ajax.core :refer [GET POST]]))
+
+(defn -keys [& ks] (s/keys :req-un (vec ks)))
+
+(s/def ::id number?)
+(s/def ::name (and string?
+                   #(pos? (count %))))
+(s/def ::names (and #(= 1 (count %))
+                    (s/? (-keys ::name))))
+
+(s/def ::type (-keys ::id))
+(s/def ::types (s/& (-keys ::type)))
+(s/def ::color (-keys ::id))
+(s/def ::is_legendary boolean?)
+(s/def ::is_mythical boolean?)
+
+(s/def ::specy (-keys ::names
+                      ::color
+                      ::is_legendary
+                      ::is_mythical))
+
+(s/def ::pokemon
+  (s/* (-keys ::id
+              ::types
+              ::specy)))
+
+(def named-things (s/& (-keys ::id ::names)))
+(s/def ::types named-things)
+(s/def ::colors named-things)
+
+(s/def ::spec
+  (-keys ::pokemon
+         ::types
+         ::colors))
 
 (def ^:private -query
   (rc/inline "main.gql"))
@@ -20,6 +54,7 @@
        }))
 
 (defn fetch-dump [handler]
+  {:post [(s/valid? ::spec %)]}
   (GET "/dump.json"
       :handler #(handler (:data %))
       :response-format :json
