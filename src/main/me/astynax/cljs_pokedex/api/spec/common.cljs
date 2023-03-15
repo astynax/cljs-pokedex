@@ -4,5 +4,4 @@
 (s/def ::id number?)
 (s/def ::name (s/and string?
                      #(pos? (count %))))
-(s/def ::names (s/and #(= 1 (count %))
-                      (s/? (s/keys :req-un [::name]))))
+(s/def ::names (s/tuple (s/keys :req-un [::name])))

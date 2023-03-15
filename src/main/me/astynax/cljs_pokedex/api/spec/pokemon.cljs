@@ -3,7 +3,8 @@
   (:import me.astynax.cljs-pokedex.api.spec.common))
 
 (s/def ::type (s/keys :req-un [:me.astynax.cljs-pokedex.api.spec.common/id]))
-(s/def ::types (s/+ (s/keys :req-un [::type])))
+(s/def ::types (s/every (s/keys :req-un [::type])
+                        :min-count 1))
 
 (s/def ::color (s/keys :req-un [:me.astynax.cljs-pokedex.api.spec.common/id]))
 (s/def ::is_legendary boolean?)
@@ -15,6 +16,6 @@
                                 ::is_mythical]))
 
 (s/def ::pokemon
-  (s/* (s/keys :req-un [:me.astynax.cljs-pokedex.api.spec.common/id
-                        ::types
-                        ::specy])))
+  (s/every (s/keys :req-un [:me.astynax.cljs-pokedex.api.spec.common/id
+                            ::types
+                            ::specy])))

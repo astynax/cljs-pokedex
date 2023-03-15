@@ -29,6 +29,8 @@
       :response-format :json
       :keywords? true))
 
+(comment
+  (s/explain :me.astynax.cljs-pokedex.api.spec/spec example))
 (def example
   {:pokemon
    (for [[i name color types leg myth]

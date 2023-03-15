@@ -4,8 +4,8 @@
            me.astynax.cljs-pokedex.api.spec.pokemon))
 
 (def ^:private named-things
-  (s/+ (s/keys :req-un [:me.astynax.cljs-pokedex.api.spec.common/id
-                        :me.astynax.cljs-pokedex.api.spec.common/names])))
+  (s/every (s/keys :req-un [:me.astynax.cljs-pokedex.api.spec.common/id
+                            :me.astynax.cljs-pokedex.api.spec.common/names])))
 (s/def ::types named-things)
 (s/def ::colors named-things)
 
