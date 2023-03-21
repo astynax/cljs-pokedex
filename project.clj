@@ -7,6 +7,7 @@
                  [ring/ring-core "1.9.6"]
                  [ring/ring-devel "1.9.6"]
                  [ring/ring-jetty-adapter "1.9.6"]
+                 [rum "0.12.10" :exclusions [cljsjs/react cljsjs/react-dom]]
                  [compojure "1.7.0"]]
   :main ^:skip-aot clj-pokedex.core
   :target-path "target/%s"
