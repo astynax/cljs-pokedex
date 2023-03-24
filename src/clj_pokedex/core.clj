@@ -41,10 +41,16 @@
 
   (route/not-found "<h1>Page not found :(</h1>"))
 
+(def default-wrap
+  (compose
+   wrap-keyword-params
+   wrap-params))
+
 (defn -main
   [& args]
   (println "Starting on localhost:4000...")
   (-> #'app
+      default-wrap
       wrap-reload
       (run-jetty {:port 4000})))
 
@@ -56,8 +62,7 @@
   (when-not @server
     (reset! server
             (-> #'app
-                wrap-keyword-params
-                wrap-params
+                default-wrap
                 (run-jetty {:port 4000 :join? false})))))
 
 (defn- stop []
